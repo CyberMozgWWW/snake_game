@@ -255,9 +255,13 @@ export function useSnakeGame() {
       drawRef.current();
       portalAnimFrameRef.current = requestAnimationFrame(animate);
     };
-    portalAnimFrameRef.current = requestAnimationFrame(animate);
+    // Delay start to ensure canvas has dimensions
+    const timeoutId = setTimeout(() => {
+      portalAnimFrameRef.current = requestAnimationFrame(animate);
+    }, 100);
     return () => {
       running = false;
+      clearTimeout(timeoutId);
       if (portalAnimFrameRef.current !== null) {
         cancelAnimationFrame(portalAnimFrameRef.current);
       }

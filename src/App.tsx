@@ -152,8 +152,24 @@ function App() {
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           marginBottom: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
         }}>
-          🐍 Змейка
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 16C8 12 10 8 14 8C18 8 20 12 20 16C20 20 22 24 26 24" stroke="url(#gradient)" strokeWidth="3" strokeLinecap="round"/>
+            <circle cx="26" cy="24" r="2" fill="#4ade80"/>
+            <circle cx="14" cy="8" r="1.5" fill="white"/>
+            <circle cx="14" cy="8" r="0.8" fill="#1a1a2e"/>
+            <defs>
+              <linearGradient id="gradient" x1="8" y1="8" x2="26" y2="24">
+                <stop offset="0%" stopColor="#4ade80"/>
+                <stop offset="100%" stopColor="#10b981"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          Змейка
         </h1>
 
         {/* Score Board */}
@@ -260,7 +276,20 @@ function App() {
             zIndex: 30,
             borderRadius: '8px',
           }}>
-            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🐍</div>
+            <div style={{ marginBottom: '16px' }}>
+              <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 16C8 12 10 8 14 8C18 8 20 12 20 16C20 20 22 24 26 24" stroke="url(#gradient2)" strokeWidth="3" strokeLinecap="round"/>
+                <circle cx="26" cy="24" r="2" fill="#4ade80"/>
+                <circle cx="14" cy="8" r="1.5" fill="white"/>
+                <circle cx="14" cy="8" r="0.8" fill="#1a1a2e"/>
+                <defs>
+                  <linearGradient id="gradient2" x1="8" y1="8" x2="26" y2="24">
+                    <stop offset="0%" stopColor="#4ade80"/>
+                    <stop offset="100%" stopColor="#10b981"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>Змейка</h2>
             <p style={{ color: '#d1d5db', fontSize: '0.875rem', marginBottom: '8px', textAlign: 'center', padding: '0 16px' }}>
               Управление: стрелки / WASD / свайпы
