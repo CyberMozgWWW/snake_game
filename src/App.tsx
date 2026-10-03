@@ -15,7 +15,7 @@ function App() {
     changeDirection,
     changeDifficulty,
     togglePortals,
-    draw,
+    drawRef,
   } = useSnakeGame();
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -44,7 +44,7 @@ function App() {
     if (canvas) {
       canvas.width = canvasSize;
       canvas.height = canvasSize;
-      draw();
+      drawRef.current();
     }
   }, [canvasSize]);
 

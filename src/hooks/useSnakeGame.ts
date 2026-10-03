@@ -87,7 +87,10 @@ export function useSnakeGame() {
   useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
   useEffect(() => { portalsEnabledRef.current = portalsEnabled; }, [portalsEnabled]);
 
-  // Draw function (not wrapped in useCallback to always use current refs)
+  // Draw function ref - always points to latest version
+  const drawRef = useRef<() => void>(() => {});
+
+  // Draw function - defined BEFORE useEffect that uses it
   const draw = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -240,13 +243,16 @@ export function useSnakeGame() {
     });
   };
 
-  // Portal animation loop
+  // Update drawRef to always point to latest draw function
+  drawRef.current = draw;
+
+  // Portal animation loop - uses drawRef to always call latest version
   useEffect(() => {
     let running = true;
     const animate = () => {
       if (!running) return;
       portalAnimationRef.current += 0.05;
-      draw();
+      drawRef.current();
       portalAnimFrameRef.current = requestAnimationFrame(animate);
     };
     portalAnimFrameRef.current = requestAnimationFrame(animate);
@@ -347,7 +353,7 @@ export function useSnakeGame() {
     }
 
     snakeRef.current = newSnake;
-    draw();
+    drawRef.current();
   }, []);
 
   const startLoop = useCallback(() => {
@@ -399,7 +405,7 @@ export function useSnakeGame() {
     scoreRef.current = 0;
     setGameState('playing');
     gameStateRef.current = 'playing';
-    draw();
+    drawRef.current();
   }, []);
 
   const changeDirection = useCallback((newDir: Direction) => {
@@ -476,6 +482,6 @@ export function useSnakeGame() {
     changeDirection,
     changeDifficulty,
     togglePortals,
-    draw,
+    drawRef,
   };
 }
