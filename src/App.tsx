@@ -1,24 +1,50 @@
-import { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useSnakeGame, Direction } from './hooks/useSnakeGame';
 
 function App() {
   const {
-    snake,
-    food,
+    canvasRef,
     gameState,
     score,
     highScore,
     difficulty,
-    gridSize,
-    eatenAnimation,
     startGame,
     restartGame,
     togglePause,
     changeDirection,
     changeDifficulty,
+    draw,
   } = useSnakeGame();
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return Math.min(window.innerWidth * 0.85, window.innerHeight * 0.5, 500);
+    }
+    return 400;
+  });
+
+  // Resize canvas
+  useEffect(() => {
+    const updateSize = () => {
+      const size = Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.5, 500));
+      setCanvasSize(Math.floor(size));
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  // Set canvas dimensions
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+      draw();
+    }
+  }, [canvasSize, canvasRef, draw]);
 
   // Keyboard controls
   useEffect(() => {
@@ -98,51 +124,45 @@ function App() {
     }
   }, [gameState, changeDirection]);
 
-  // Calculate board dimensions
-  const boardPx = Math.min(window.innerWidth * 0.7, window.innerHeight * 0.55, 500);
-  const cellPx = boardPx / gridSize;
-
-  const getEyeEmoji = () => {
-    if (snake.length < 2) return '👀';
-    const head = snake[0];
-    const neck = snake[1];
-    const dx = head.x - neck.x;
-    const dy = head.y - neck.y;
-    if (dx === 1) return '👉';
-    if (dx === -1) return '👈';
-    if (dy === 1) return '👇';
-    if (dy === -1) return '👆';
-    return '👀';
-  };
-
   return (
     <div
-      className="flex flex-col items-center justify-center select-none"
+      ref={containerRef}
       style={{
-        minHeight: '100dvh',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
         padding: '16px',
+        userSelect: 'none',
         overflow: 'hidden',
       }}
     >
       {/* Header */}
-      <div style={{ width: '100%', maxWidth: '500px', marginBottom: '12px' }}>
-        <h1
-          style={{
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            background: 'linear-gradient(90deg, #4ade80, #10b981)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            marginBottom: '8px',
-          }}
-        >
+      <div style={{ width: '100%', maxWidth: `${canvasSize}px`, marginBottom: '12px' }}>
+        <h1 style={{
+          fontSize: 'clamp(1.5rem, 5vw, 2rem)',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          background: 'linear-gradient(90deg, #4ade80, #10b981)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '8px',
+        }}>
           🐍 Змейка
         </h1>
 
         {/* Score Board */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '0 8px',
+          flexWrap: 'wrap',
+          gap: '8px',
+        }}>
           <div style={{ display: 'flex', gap: '16px' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '0.7rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Счёт</div>
@@ -160,9 +180,9 @@ function App() {
                 onClick={() => changeDifficulty(d)}
                 disabled={gameState === 'playing' || gameState === 'paused'}
                 style={{
-                  padding: '4px 12px',
+                  padding: '4px 10px',
                   borderRadius: '9999px',
-                  fontSize: '0.75rem',
+                  fontSize: '0.7rem',
                   fontWeight: 500,
                   border: 'none',
                   cursor: (gameState === 'playing' || gameState === 'paused') ? 'not-allowed' : 'pointer',
@@ -184,139 +204,37 @@ function App() {
         </div>
       </div>
 
-      {/* Game Board */}
-      <div
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          position: 'relative',
-          width: `${boardPx}px`,
-          height: `${boardPx}px`,
-          border: '2px solid #4b5563',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(16, 185, 129, 0.1)',
-          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-          touchAction: 'none',
-        }}
-      >
-        {/* Grid cells */}
-        {Array.from({ length: gridSize * gridSize }).map((_, i) => {
-          const x = i % gridSize;
-          const y = Math.floor(i / gridSize);
-          const isDark = (x + y) % 2 === 0;
-          return (
-            <div
-              key={i}
-              style={{
-                position: 'absolute',
-                left: `${x * cellPx}px`,
-                top: `${y * cellPx}px`,
-                width: `${cellPx}px`,
-                height: `${cellPx}px`,
-                background: isDark ? 'rgba(31, 41, 55, 0.3)' : 'rgba(31, 41, 55, 0.1)',
-              }}
-            />
-          );
-        })}
-
-        {/* Snake */}
-        {snake.map((segment, index) => (
-          <div
-            key={`snake-${index}-${segment.x}-${segment.y}`}
-            style={{
-              position: 'absolute',
-              left: `${segment.x * cellPx}px`,
-              top: `${segment.y * cellPx}px`,
-              width: `${cellPx}px`,
-              height: `${cellPx}px`,
-              borderRadius: index === 0 ? '4px' : '3px',
-              background: index === 0
-                ? 'linear-gradient(135deg, #86efac, #22c55e)'
-                : `linear-gradient(135deg, #4ade80, #16a34a)`,
-              opacity: index === 0 ? 1 : Math.max(0.5, 1 - index * 0.015),
-              transform: index === 0 ? 'scale(1.05)' : 'scale(0.88)',
-              zIndex: index === 0 ? 10 : 5,
-              boxShadow: index === 0 ? '0 0 10px rgba(34, 197, 94, 0.5)' : 'none',
-              transition: 'left 0.05s linear, top 0.05s linear',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: `${cellPx * 0.5}px`,
-            }}
-          >
-            {index === 0 && getEyeEmoji()}
-          </div>
-        ))}
-
-        {/* Food */}
-        <div
+      {/* Game Canvas */}
+      <div style={{ position: 'relative' }}>
+        <canvas
+          ref={canvasRef}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
           style={{
+            width: `${canvasSize}px`,
+            height: `${canvasSize}px`,
+            border: '2px solid #4b5563',
+            borderRadius: '8px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(16, 185, 129, 0.1)',
+            touchAction: 'none',
+            display: 'block',
+          }}
+        />
+
+        {/* Overlays */}
+        {gameState === 'idle' && (
+          <div className="fade-in" style={{
             position: 'absolute',
-            left: `${food.x * cellPx}px`,
-            top: `${food.y * cellPx}px`,
-            width: `${cellPx}px`,
-            height: `${cellPx}px`,
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 10,
-            animation: 'pulse 1s ease-in-out infinite',
-          }}
-        >
-          <div
-            style={{
-              width: '75%',
-              height: '75%',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #f87171, #dc2626)',
-              boxShadow: '0 0 12px rgba(239, 68, 68, 0.6)',
-              animation: 'bounce 1s ease-in-out infinite',
-            }}
-          />
-        </div>
-
-        {/* Eaten animation */}
-        {eatenAnimation && (
-          <div
-            style={{
-              position: 'absolute',
-              left: `${eatenAnimation.x * cellPx}px`,
-              top: `${eatenAnimation.y * cellPx}px`,
-              width: `${cellPx}px`,
-              height: `${cellPx}px`,
-              zIndex: 20,
-              pointerEvents: 'none',
-            }}
-          >
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: '50%',
-                background: 'rgba(250, 204, 21, 0.4)',
-                animation: 'ping 0.4s ease-out forwards',
-              }}
-            />
-          </div>
-        )}
-
-        {/* Idle overlay */}
-        {gameState === 'idle' && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 30,
-              animation: 'fadeIn 0.3s ease-out',
-            }}
-          >
+            zIndex: 30,
+            borderRadius: '8px',
+          }}>
             <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🐍</div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>Змейка</h2>
             <p style={{ color: '#d1d5db', fontSize: '0.875rem', marginBottom: '16px', textAlign: 'center', padding: '0 16px' }}>
@@ -334,10 +252,7 @@ function App() {
                 fontSize: '1rem',
                 cursor: 'pointer',
                 boxShadow: '0 4px 14px rgba(34, 197, 94, 0.4)',
-                transition: 'transform 0.2s, box-shadow 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
             >
               Начать игру
             </button>
@@ -345,22 +260,19 @@ function App() {
           </div>
         )}
 
-        {/* Paused overlay */}
         {gameState === 'paused' && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 30,
-              animation: 'fadeIn 0.3s ease-out',
-            }}
-          >
+          <div className="fade-in" style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 30,
+            borderRadius: '8px',
+          }}>
             <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⏸️</div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '16px' }}>Пауза</h2>
             <button
@@ -375,10 +287,7 @@ function App() {
                 fontSize: '1rem',
                 cursor: 'pointer',
                 boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
-                transition: 'transform 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
             >
               Продолжить
             </button>
@@ -386,22 +295,19 @@ function App() {
           </div>
         )}
 
-        {/* Game Over overlay */}
         {gameState === 'gameover' && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 30,
-              animation: 'fadeIn 0.3s ease-out',
-            }}
-          >
+          <div className="fade-in" style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 30,
+            borderRadius: '8px',
+          }}>
             <div style={{ fontSize: '3rem', marginBottom: '16px' }}>💀</div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '4px' }}>Игра окончена</h2>
             <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#facc15', marginBottom: '4px' }}>{score}</p>
@@ -420,10 +326,7 @@ function App() {
                 fontSize: '1rem',
                 cursor: 'pointer',
                 boxShadow: '0 4px 14px rgba(34, 197, 94, 0.4)',
-                transition: 'transform 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
             >
               Играть снова
             </button>
@@ -433,7 +336,7 @@ function App() {
       </div>
 
       {/* Controls */}
-      <div style={{ width: '100%', maxWidth: '500px', marginTop: '16px' }}>
+      <div style={{ width: '100%', maxWidth: `${canvasSize}px`, marginTop: '16px' }}>
         {/* Action buttons */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '16px' }}>
           {gameState === 'playing' && (
@@ -450,10 +353,7 @@ function App() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                transition: 'background 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#4b5563'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#374151'; }}
             >
               <span>⏸</span> Пауза
             </button>
@@ -472,10 +372,7 @@ function App() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                transition: 'background 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#3b82f6'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#2563eb'; }}
             >
               <span>▶</span> Продолжить
             </button>
@@ -494,10 +391,7 @@ function App() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                transition: 'background 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#4b5563'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#374151'; }}
             >
               <span>🔄</span> Заново
             </button>
@@ -505,26 +399,13 @@ function App() {
         </div>
 
         {/* D-Pad for mobile */}
-        <div style={{ display: 'flex', justifyContent: 'center' }} className="dpad-container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', width: '160px' }}>
+        <div className="dpad-mobile">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', width: '160px', margin: '0 auto' }}>
             <div />
             <button
               onTouchStart={(e) => { e.preventDefault(); handleDPad('UP'); }}
               onClick={() => handleDPad('UP')}
               className="dpad-btn"
-              style={{
-                background: 'rgba(55, 65, 81, 0.8)',
-                borderRadius: '8px',
-                padding: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '1.25rem',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
             >
               ▲
             </button>
@@ -533,19 +414,6 @@ function App() {
               onTouchStart={(e) => { e.preventDefault(); handleDPad('LEFT'); }}
               onClick={() => handleDPad('LEFT')}
               className="dpad-btn"
-              style={{
-                background: 'rgba(55, 65, 81, 0.8)',
-                borderRadius: '8px',
-                padding: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '1.25rem',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
             >
               ◀
             </button>
@@ -556,19 +424,6 @@ function App() {
               onTouchStart={(e) => { e.preventDefault(); handleDPad('RIGHT'); }}
               onClick={() => handleDPad('RIGHT')}
               className="dpad-btn"
-              style={{
-                background: 'rgba(55, 65, 81, 0.8)',
-                borderRadius: '8px',
-                padding: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '1.25rem',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
             >
               ▶
             </button>
@@ -577,19 +432,6 @@ function App() {
               onTouchStart={(e) => { e.preventDefault(); handleDPad('DOWN'); }}
               onClick={() => handleDPad('DOWN')}
               className="dpad-btn"
-              style={{
-                background: 'rgba(55, 65, 81, 0.8)',
-                borderRadius: '8px',
-                padding: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '1.25rem',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
             >
               ▼
             </button>
@@ -598,40 +440,46 @@ function App() {
         </div>
 
         {/* Desktop hints */}
-        <div className="desktop-hints" style={{ display: 'none', justifyContent: 'center', gap: '16px', color: '#6b7280', fontSize: '0.75rem', marginTop: '8px' }}>
+        <div className="desktop-hints">
           <span>← → ↑ ↓ — движение</span>
           <span>Space — пауза</span>
           <span>R — рестарт</span>
         </div>
       </div>
 
-      {/* Inline keyframes */}
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
-        }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-2px); }
-        }
-        @keyframes ping {
-          0% { transform: scale(1); opacity: 0.6; }
-          100% { transform: scale(2); opacity: 0; }
+        .dpad-btn {
+          background: rgba(55, 65, 81, 0.8);
+          border: none;
+          border-radius: 8px;
+          padding: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 1.25rem;
+          cursor: pointer;
         }
         .dpad-btn:active {
-          background: #16a34a !important;
+          background: #16a34a;
+        }
+        .dpad-mobile {
+          display: block;
+        }
+        .desktop-hints {
+          display: none;
+          justify-content: center;
+          gap: 16px;
+          color: #6b7280;
+          font-size: 0.75rem;
+          margin-top: 8px;
         }
         @media (min-width: 768px) {
-          .dpad-container {
-            display: none !important;
+          .dpad-mobile {
+            display: none;
           }
           .desktop-hints {
-            display: flex !important;
+            display: flex;
           }
         }
       `}</style>
