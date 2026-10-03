@@ -46,7 +46,7 @@ function App() {
       canvas.height = canvasSize;
       draw();
     }
-  }, [canvasSize, canvasRef, draw]);
+  }, [canvasSize]);
 
   // Keyboard controls
   useEffect(() => {

@@ -67,7 +67,7 @@ export function useSnakeGame() {
   const portalAnimationRef = useRef(0);
   const portalAnimFrameRef = useRef<number | null>(null);
 
-  // Initialize portals immediately (computed once at module load)
+  // Initialize portals immediately
   const initialPortals = (() => {
     const initialSnake = [
       { x: 10, y: 10 },
@@ -82,82 +82,13 @@ export function useSnakeGame() {
 
   const portalsRef = useRef<[Position, Position] | null>(initialPortals);
 
-  // Generate portals function (for regenerating)
-  const generatePortals = useCallback(() => {
-    const initialSnake = [
-      { x: 10, y: 10 },
-      { x: 9, y: 10 },
-      { x: 8, y: 10 },
-    ];
-    const food = foodRef.current;
-    const exclude = [...initialSnake, food];
-    const positions = getRandomPositions(2, exclude);
-    portalsRef.current = [positions[0], positions[1]];
-  }, []);
-
   // Sync refs
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
   useEffect(() => { portalsEnabledRef.current = portalsEnabled; }, [portalsEnabled]);
 
-  const drawPortals = useCallback((ctx: CanvasRenderingContext2D, cellSize: number) => {
-    const portals = portalsRef.current;
-    if (!portals || !portalsEnabledRef.current) return;
-
-    const time = portalAnimationRef.current;
-
-    portals.forEach((portal, index) => {
-      const cx = portal.x * cellSize + cellSize / 2;
-      const cy = portal.y * cellSize + cellSize / 2;
-      const baseRadius = cellSize * 0.4;
-
-      // Color schemes for each portal
-      const colors = index === 0
-        ? { outer: '#a855f7', inner: '#7c3aed', glow: 'rgba(168, 85, 247, 0.6)' }
-        : { outer: '#f97316', inner: '#ea580c', glow: 'rgba(249, 115, 22, 0.6)' };
-
-      // Pulsing effect
-      const pulseScale = 1 + Math.sin(time * 3 + index * Math.PI) * 0.15;
-      const radius = baseRadius * pulseScale;
-
-      // Outer glow
-      ctx.save();
-      ctx.shadowColor = colors.glow;
-      ctx.shadowBlur = 15 + Math.sin(time * 2) * 5;
-
-      // Draw swirling portal
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.fillStyle = colors.outer;
-      ctx.fill();
-
-      // Inner circle
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
-      ctx.fillStyle = colors.inner;
-      ctx.fill();
-
-      // Center bright spot
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius * 0.25, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fill();
-
-      // Swirl lines
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1.5;
-      for (let i = 0; i < 3; i++) {
-        const angle = time * 2 + (i * Math.PI * 2) / 3 + index * Math.PI;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius * 0.7, angle, angle + Math.PI * 0.5);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    });
-  }, []);
-
-  const draw = useCallback(() => {
+  // Draw function (not wrapped in useCallback to always use current refs)
+  const draw = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (canvas.width <= 0 || canvas.height <= 0) return;
@@ -182,7 +113,53 @@ export function useSnakeGame() {
     }
 
     // Draw portals
-    drawPortals(ctx, cellSize);
+    const portals = portalsRef.current;
+    if (portals && portalsEnabledRef.current) {
+      const time = portalAnimationRef.current;
+
+      portals.forEach((portal, index) => {
+        const cx = portal.x * cellSize + cellSize / 2;
+        const cy = portal.y * cellSize + cellSize / 2;
+        const baseRadius = cellSize * 0.4;
+
+        const colors = index === 0
+          ? { outer: '#a855f7', inner: '#7c3aed', glow: 'rgba(168, 85, 247, 0.6)' }
+          : { outer: '#f97316', inner: '#ea580c', glow: 'rgba(249, 115, 22, 0.6)' };
+
+        const pulseScale = 1 + Math.sin(time * 3 + index * Math.PI) * 0.15;
+        const radius = baseRadius * pulseScale;
+
+        ctx.save();
+        ctx.shadowColor = colors.glow;
+        ctx.shadowBlur = 15 + Math.sin(time * 2) * 5;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = colors.outer;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = colors.inner;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 3; i++) {
+          const angle = time * 2 + (i * Math.PI * 2) / 3 + index * Math.PI;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius * 0.7, angle, angle + Math.PI * 0.5);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      });
+    }
 
     // Draw food
     const food = foodRef.current;
@@ -208,7 +185,6 @@ export function useSnakeGame() {
       const offset = (cellSize - size) / 2;
 
       if (index === 0) {
-        // Head
         ctx.save();
         ctx.shadowColor = 'rgba(34, 197, 94, 0.5)';
         ctx.shadowBlur = 10;
@@ -216,7 +192,6 @@ export function useSnakeGame() {
         ctx.fillRect(x + offset, y + offset, size, size);
         ctx.restore();
 
-        // Eyes
         const eyeSize = cellSize * 0.12;
         ctx.fillStyle = 'white';
         const dir = directionRef.current;
@@ -250,7 +225,6 @@ export function useSnakeGame() {
         ctx.arc(eye2X, eye2Y, eyeSize, 0, Math.PI * 2);
         ctx.fill();
 
-        // Pupils
         ctx.fillStyle = '#1a1a2e';
         ctx.beginPath();
         ctx.arc(eye1X, eye1Y, eyeSize * 0.5, 0, Math.PI * 2);
@@ -259,15 +233,14 @@ export function useSnakeGame() {
         ctx.arc(eye2X, eye2Y, eyeSize * 0.5, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Body
         const opacity = Math.max(0.5, 1 - index * 0.015);
         ctx.fillStyle = `rgba(74, 222, 128, ${opacity})`;
         ctx.fillRect(x + offset, y + offset, size, size);
       }
     });
-  }, [drawPortals]);
+  };
 
-  // Portal animation loop (runs continuously for smooth portal visuals)
+  // Portal animation loop
   useEffect(() => {
     let running = true;
     const animate = () => {
@@ -283,12 +256,11 @@ export function useSnakeGame() {
         cancelAnimationFrame(portalAnimFrameRef.current);
       }
     };
-  }, [draw]);
+  }, []);
 
   const gameLoop = useCallback(() => {
     if (gameStateRef.current !== 'playing') return;
 
-    // Process direction queue
     if (directionQueueRef.current.length > 0) {
       const nextDir = directionQueueRef.current.shift()!;
       directionRef.current = nextDir;
@@ -305,7 +277,6 @@ export function useSnakeGame() {
       case 'RIGHT': head.x += 1; break;
     }
 
-    // Check wall collision
     if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
       setGameState('gameover');
       gameStateRef.current = 'gameover';
@@ -328,18 +299,14 @@ export function useSnakeGame() {
     if (portalsEnabledRef.current && portalsRef.current) {
       const [portalA, portalB] = portalsRef.current;
       if (head.x === portalA.x && head.y === portalA.y) {
-        // Teleport to portal B
         head.x = portalB.x;
         head.y = portalB.y;
-        // Adjust direction to move away from portal B
       } else if (head.x === portalB.x && head.y === portalB.y) {
-        // Teleport to portal A
         head.x = portalA.x;
         head.y = portalA.y;
       }
     }
 
-    // Check self collision (skip tail since it will move)
     const bodyToCheck = currentSnake.slice(0, -1);
     if (bodyToCheck.some(seg => seg.x === head.x && seg.y === head.y)) {
       setGameState('gameover');
@@ -363,14 +330,12 @@ export function useSnakeGame() {
     const currentFood = foodRef.current;
 
     if (head.x === currentFood.x && head.y === currentFood.y) {
-      // Ate food
       const diff = difficultyRef.current;
       const points = diff === 'easy' ? 5 : diff === 'medium' ? 10 : 20;
       const newScore = scoreRef.current + points;
       setScore(newScore);
       scoreRef.current = newScore;
 
-      // Generate new food avoiding snake and portals
       const exclude = [...newSnake];
       if (portalsEnabledRef.current && portalsRef.current) {
         exclude.push(portalsRef.current[0], portalsRef.current[1]);
@@ -383,7 +348,7 @@ export function useSnakeGame() {
 
     snakeRef.current = newSnake;
     draw();
-  }, [draw]);
+  }, []);
 
   const startLoop = useCallback(() => {
     if (intervalRef.current !== null) {
@@ -418,7 +383,6 @@ export function useSnakeGame() {
     ];
     snakeRef.current = initialSnake;
 
-    // Generate food and portals
     const exclude = [...initialSnake];
     const positions = getRandomPositions(3, exclude);
     foodRef.current = positions[0];
@@ -436,7 +400,7 @@ export function useSnakeGame() {
     setGameState('playing');
     gameStateRef.current = 'playing';
     draw();
-  }, [draw]);
+  }, []);
 
   const changeDirection = useCallback((newDir: Direction) => {
     const current = directionQueueRef.current.length > 0
@@ -481,14 +445,22 @@ export function useSnakeGame() {
     setPortalsEnabled(prev => {
       const newVal = !prev;
       portalsEnabledRef.current = newVal;
-      if (newVal) {
-        generatePortals();
-      } else {
+      if (newVal && !portalsRef.current) {
+        const initialSnake = [
+          { x: 10, y: 10 },
+          { x: 9, y: 10 },
+          { x: 8, y: 10 },
+        ];
+        const food = foodRef.current;
+        const exclude = [...initialSnake, food];
+        const positions = getRandomPositions(2, exclude);
+        portalsRef.current = [positions[0], positions[1]];
+      } else if (!newVal) {
         portalsRef.current = null;
       }
       return newVal;
     });
-  }, [generatePortals]);
+  }, []);
 
   return {
     canvasRef,
