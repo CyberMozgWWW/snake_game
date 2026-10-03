@@ -8,11 +8,13 @@ function App() {
     score,
     highScore,
     difficulty,
+    portalsEnabled,
     startGame,
     restartGame,
     togglePause,
     changeDirection,
     changeDifficulty,
+    togglePortals,
     draw,
   } = useSnakeGame();
 
@@ -200,6 +202,29 @@ function App() {
                 {d === 'easy' ? 'Легко' : d === 'medium' ? 'Средне' : 'Сложно'}
               </button>
             ))}
+            <button
+              onClick={togglePortals}
+              disabled={gameState === 'playing' || gameState === 'paused'}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '9999px',
+                fontSize: '0.7rem',
+                fontWeight: 500,
+                border: 'none',
+                cursor: (gameState === 'playing' || gameState === 'paused') ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
+                opacity: (gameState === 'playing' || gameState === 'paused') ? 0.5 : 1,
+                background: portalsEnabled
+                  ? 'linear-gradient(90deg, #a855f7, #f97316)'
+                  : '#374151',
+                color: portalsEnabled ? 'white' : '#d1d5db',
+                boxShadow: portalsEnabled
+                  ? '0 4px 14px rgba(168, 85, 247, 0.3)'
+                  : 'none',
+              }}
+            >
+              🌀 Порталы
+            </button>
           </div>
         </div>
       </div>
@@ -237,8 +262,11 @@ function App() {
           }}>
             <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🐍</div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>Змейка</h2>
-            <p style={{ color: '#d1d5db', fontSize: '0.875rem', marginBottom: '16px', textAlign: 'center', padding: '0 16px' }}>
+            <p style={{ color: '#d1d5db', fontSize: '0.875rem', marginBottom: '8px', textAlign: 'center', padding: '0 16px' }}>
               Управление: стрелки / WASD / свайпы
+            </p>
+            <p style={{ color: '#a78bfa', fontSize: '0.75rem', marginBottom: '16px', textAlign: 'center', padding: '0 16px' }}>
+              🌀 Порталы телепортируют змейку между собой
             </p>
             <button
               onClick={startGame}
