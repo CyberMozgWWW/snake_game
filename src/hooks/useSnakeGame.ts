@@ -37,28 +37,36 @@ export function useSnakeGame() {
   const [gameState, setGameState] = useState<GameState>('idle');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(() => {
-    const saved = localStorage.getItem('snake-high-score');
-    return saved ? parseInt(saved, 10) : 0;
+    try {
+      const saved = localStorage.getItem('snake-high-score');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
   });
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [eatenAnimation, setEatenAnimation] = useState<Position | null>(null);
 
-  const directionRef = useRef<Direction>(direction);
-  const gameStateRef = useRef<GameState>(gameState);
-  const snakeRef = useRef<Position[]>(snake);
-  const foodRef = useRef<Position>(food);
-  const scoreRef = useRef<number>(score);
+  // Use refs for game loop to avoid stale closures and infinite re-renders
+  const directionRef = useRef<Direction>('RIGHT');
+  const gameStateRef = useRef<GameState>('idle');
+  const snakeRef = useRef<Position[]>(INITIAL_SNAKE);
+  const foodRef = useRef<Position>({ x: 15, y: 10 });
+  const scoreRef = useRef<number>(0);
+  const difficultyRef = useRef<Difficulty>('medium');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const directionQueueRef = useRef<Direction[]>([]);
 
+  // Sync refs with state
   useEffect(() => { directionRef.current = direction; }, [direction]);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { snakeRef.current = snake; }, [snake]);
   useEffect(() => { foodRef.current = food; }, [food]);
   useEffect(() => { scoreRef.current = score; }, [score]);
+  useEffect(() => { difficultyRef.current = difficulty; }, [difficulty]);
 
   const stopLoop = useCallback(() => {
-    if (intervalRef.current) {
+    if (intervalRef.current !== null) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
@@ -74,7 +82,7 @@ export function useSnakeGame() {
       setDirection(nextDir);
     }
 
-    const currentSnake = [...snakeRef.current];
+    const currentSnake = snakeRef.current;
     const head = { ...currentSnake[0] };
     const dir = directionRef.current;
 
@@ -88,22 +96,39 @@ export function useSnakeGame() {
     // Check wall collision
     if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
       setGameState('gameover');
-      stopLoop();
-      if (scoreRef.current > (parseInt(localStorage.getItem('snake-high-score') || '0', 10))) {
-        localStorage.setItem('snake-high-score', scoreRef.current.toString());
-        setHighScore(scoreRef.current);
+      gameStateRef.current = 'gameover';
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
+      const currentScore = scoreRef.current;
+      try {
+        const savedHigh = parseInt(localStorage.getItem('snake-high-score') || '0', 10);
+        if (currentScore > savedHigh) {
+          localStorage.setItem('snake-high-score', currentScore.toString());
+          setHighScore(currentScore);
+        }
+      } catch { /* ignore */ }
       return;
     }
 
-    // Check self collision
-    if (currentSnake.some(seg => seg.x === head.x && seg.y === head.y)) {
+    // Check self collision (skip tail since it will move)
+    const bodyToCheck = currentSnake.slice(0, -1);
+    if (bodyToCheck.some(seg => seg.x === head.x && seg.y === head.y)) {
       setGameState('gameover');
-      stopLoop();
-      if (scoreRef.current > (parseInt(localStorage.getItem('snake-high-score') || '0', 10))) {
-        localStorage.setItem('snake-high-score', scoreRef.current.toString());
-        setHighScore(scoreRef.current);
+      gameStateRef.current = 'gameover';
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
+      const currentScore = scoreRef.current;
+      try {
+        const savedHigh = parseInt(localStorage.getItem('snake-high-score') || '0', 10);
+        if (currentScore > savedHigh) {
+          localStorage.setItem('snake-high-score', currentScore.toString());
+          setHighScore(currentScore);
+        }
+      } catch { /* ignore */ }
       return;
     }
 
@@ -112,7 +137,9 @@ export function useSnakeGame() {
 
     if (head.x === currentFood.x && head.y === currentFood.y) {
       // Ate food
-      const newScore = scoreRef.current + (difficulty === 'easy' ? 5 : difficulty === 'medium' ? 10 : 20);
+      const diff = difficultyRef.current;
+      const points = diff === 'easy' ? 5 : diff === 'medium' ? 10 : 20;
+      const newScore = scoreRef.current + points;
       setScore(newScore);
       scoreRef.current = newScore;
       setEatenAnimation({ ...currentFood });
@@ -126,16 +153,43 @@ export function useSnakeGame() {
 
     setSnake(newSnake);
     snakeRef.current = newSnake;
-  }, [stopLoop, difficulty]);
+  }, []);
 
   const startLoop = useCallback(() => {
-    stopLoop();
-    intervalRef.current = setInterval(gameLoop, SPEED_MAP[difficulty]);
-  }, [gameLoop, stopLoop, difficulty]);
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+    }
+    const speed = SPEED_MAP[difficultyRef.current];
+    intervalRef.current = setInterval(gameLoop, speed);
+  }, [gameLoop]);
+
+  // Start/stop loop based on game state
+  useEffect(() => {
+    if (gameState === 'playing') {
+      startLoop();
+    } else {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+    // Cleanup on unmount
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [gameState, startLoop]);
 
   const startGame = useCallback(() => {
-    setSnake(INITIAL_SNAKE);
-    snakeRef.current = INITIAL_SNAKE;
+    const initialSnake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 },
+    ];
+    setSnake(initialSnake);
+    snakeRef.current = initialSnake;
     setFood({ x: 15, y: 10 });
     foodRef.current = { x: 15, y: 10 };
     setDirection('RIGHT');
@@ -143,19 +197,10 @@ export function useSnakeGame() {
     directionQueueRef.current = [];
     setScore(0);
     scoreRef.current = 0;
+    setEatenAnimation(null);
     setGameState('playing');
     gameStateRef.current = 'playing';
-    setEatenAnimation(null);
   }, []);
-
-  useEffect(() => {
-    if (gameState === 'playing') {
-      startLoop();
-    } else {
-      stopLoop();
-    }
-    return stopLoop;
-  }, [gameState, startLoop, stopLoop]);
 
   const changeDirection = useCallback((newDir: Direction) => {
     const current = directionQueueRef.current.length > 0
@@ -174,26 +219,27 @@ export function useSnakeGame() {
   }, []);
 
   const togglePause = useCallback(() => {
-    if (gameState === 'playing') {
+    if (gameStateRef.current === 'playing') {
       setGameState('paused');
       gameStateRef.current = 'paused';
-    } else if (gameState === 'paused') {
+    } else if (gameStateRef.current === 'paused') {
       setGameState('playing');
       gameStateRef.current = 'playing';
     }
-  }, [gameState]);
+  }, []);
 
   const restartGame = useCallback(() => {
-    stopLoop();
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     startGame();
-  }, [stopLoop, startGame]);
+  }, [startGame]);
 
   const changeDifficulty = useCallback((d: Difficulty) => {
     setDifficulty(d);
-    if (gameState === 'idle' || gameState === 'gameover') {
-      // Just update, will apply on next start
-    }
-  }, [gameState]);
+    difficultyRef.current = d;
+  }, []);
 
   return {
     snake,
