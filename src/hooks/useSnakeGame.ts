@@ -63,10 +63,37 @@ export function useSnakeGame() {
   const intervalRef = useRef<number | null>(null);
   const directionQueueRef = useRef<Direction[]>([]);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const portalsRef = useRef<[Position, Position] | null>(null);
   const portalsEnabledRef = useRef(true);
   const portalAnimationRef = useRef(0);
   const portalAnimFrameRef = useRef<number | null>(null);
+
+  // Initialize portals immediately (computed once at module load)
+  const initialPortals = (() => {
+    const initialSnake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 },
+    ];
+    const food = { x: 15, y: 10 };
+    const exclude = [...initialSnake, food];
+    const positions = getRandomPositions(2, exclude);
+    return [positions[0], positions[1]] as [Position, Position];
+  })();
+
+  const portalsRef = useRef<[Position, Position] | null>(initialPortals);
+
+  // Generate portals function (for regenerating)
+  const generatePortals = useCallback(() => {
+    const initialSnake = [
+      { x: 10, y: 10 },
+      { x: 9, y: 10 },
+      { x: 8, y: 10 },
+    ];
+    const food = foodRef.current;
+    const exclude = [...initialSnake, food];
+    const positions = getRandomPositions(2, exclude);
+    portalsRef.current = [positions[0], positions[1]];
+  }, []);
 
   // Sync refs
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
@@ -454,9 +481,14 @@ export function useSnakeGame() {
     setPortalsEnabled(prev => {
       const newVal = !prev;
       portalsEnabledRef.current = newVal;
+      if (newVal) {
+        generatePortals();
+      } else {
+        portalsRef.current = null;
+      }
       return newVal;
     });
-  }, []);
+  }, [generatePortals]);
 
   return {
     canvasRef,
